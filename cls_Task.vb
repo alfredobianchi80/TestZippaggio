@@ -1,68 +1,274 @@
 ﻿Public Class cls_Task
 
+#Region "Dati Generali"
+    Property ID As String = ""
+    Property Nome As String = ""
+    Property Gruppo As String = ""
+    Property Priorita As Int32 = 0
+    Property Abilitato As Boolean = False
+    Property UsaCopiaShadow As Boolean = False
+    Property Tipo As en_TipoTask = en_TipoTask.NonDefinito
 
-    Property TASK_ID As String = ""
-    Property TASK_NAME As String = ""
-    Property TASK_Tipo As en_task_TipoTask = en_task_TipoTask.NonDefinito
-
-    Property TASK_Origine As List(Of cls_task_percorso) = Nothing
-    Property TASK_DestinazionePath As String = ""
-    'Property TASK_DestinazioneFileName As String = ""
-
-    Property TASK_Configuration As cls_Task_Config = Nothing
-
-
-    Private Property Exec_OutFileName As String = ""
-    Private Property Exec_temp_OutFileName As String = ""
-
-    Private Property Exec_MultiSource As Boolean = False
-
-    Sub New()
-        TASK_Origine = New List(Of cls_task_percorso)
-        TASK_Configuration = New cls_Task_Config
-    End Sub
-
-
-    Enum en_task_TipoTask
+    Enum en_TipoTask
         NonDefinito = 0
         Completo = 1
         SoloNonArchiviati = 2
     End Enum
 
+#End Region '"Dati Generali"
+
+
+#Region "Dettaglio Percorsi di ORIGINE e DESTINAZIONE"
+    Property Percorsi_Origine As Dictionary(Of String, cls_percorso) = Nothing
+    Property Percorso_Destinazione As cls_percorso = Nothing
+
+    Public Function Add_Origine(ByVal Tipo As cls_percorso.en_TipoPercorso, ByVal Path As String, ByVal PercorsoID As String,
+                                Optional ByVal ParametriConnessione As String = "",
+                                Optional ByVal CambiaIDSeEsistente As Boolean = False) As Boolean
+        Dim bool_Result As Boolean = False
+        Dim int_prog As Int32 = 0
+        Dim str_temp_ID As String = ""
+        Dim bool_inserisci As Boolean = False
+        Dim bool_EsciCiclo As Boolean = False
+
+        'Inizializza
+        If Percorsi_Origine Is Nothing Then
+            Percorsi_Origine = New Dictionary(Of String, cls_percorso)
+        End If
+
+        PercorsoID = PercorsoID.Trim.ToUpper
+        If PercorsoID = "" Then
+            PercorsoID = "DEFAULT"
+        End If
+
+        'Determina se il percorso è o meno inseribile (Gestisci parametro 'CambiaIDSeEsistente' ed aggiorna l'ID del percorso nel caso)
+        str_temp_ID = PercorsoID
+        bool_EsciCiclo = False
+        Do
+            bool_inserisci = Not (Percorsi_Origine.ContainsKey(str_temp_ID))
+            If bool_inserisci Then
+                bool_EsciCiclo = True
+            Else
+                If CambiaIDSeEsistente Then
+                    str_temp_ID = PercorsoID & "_" & int_prog.ToString("0000")
+                    bool_EsciCiclo = False
+                Else
+                    bool_EsciCiclo = True
+                End If
+            End If
+        Loop Until (bool_EsciCiclo = False)
+        If PercorsoID <> str_temp_ID Then
+            PercorsoID = str_temp_ID
+        End If
+
+        If bool_inserisci Then
+            Try
+                Percorsi_Origine.Add(PercorsoID, New cls_percorso(Tipo, Path, PercorsoID, ParametriConnessione))
+                bool_Result = True
+            Catch ex As Exception
+
+            End Try
+        End If
+
+        Return bool_Result
+    End Function
+
+    Public Function Remove_Origine(ByVal PercorsoID As String,
+                                   Optional ByVal ReturnValueIfNotExist As Boolean = False) As Boolean
+        Dim bool_Result As Boolean = False
+        PercorsoID = PercorsoID.ToUpper.Trim
+
+        If Percorsi_Origine.ContainsKey(PercorsoID) Then
+            Try
+                Percorsi_Origine.Remove(PercorsoID)
+                bool_Result = True
+            Catch ex As Exception
+
+            End Try
+
+        Else
+            bool_Result = ReturnValueIfNotExist
+        End If
+
+        Return bool_Result
+    End Function
+
+    Public Function Add_Destinazione(ByVal Tipo As cls_percorso.en_TipoPercorso, ByVal Path As String,
+                                Optional ByVal ParametriConnessione As String = "",
+                                Optional ByVal CambiaIDSeEsistente As Boolean = False) As Boolean
+        Dim bool_Result As Boolean = False
+
+        'Inizializza
+        If Percorso_Destinazione Is Nothing Then
+            Percorso_Destinazione = New cls_percorso
+        End If
+
+        Try
+            With Percorso_Destinazione
+                .Tipo = Tipo
+                .Percorso = Path
+                .ParametriConnessione = ParametriConnessione
+                .IDPercorso = ""
+            End With
+
+            bool_Result = True
+        Catch ex As Exception
+
+        End Try
+
+        Return bool_Result
+    End Function
+
+    Class cls_percorso
+        Property Tipo As en_TipoPercorso = en_TipoPercorso.NonDefinito
+        Property Percorso As String = ""
+        Property ParametriConnessione As String = ""
+        Property IDPercorso As String = ""
+        Sub New()
+
+        End Sub
+        Sub New(ByVal Tipo As en_TipoPercorso, ByVal Percorso As String, ByVal IDPercorso As String, Optional ByVal ParametriConnessione As String = "")
+            Me.Tipo = Tipo
+            Me.Percorso = Percorso
+            Me.IDPercorso = IDPercorso
+            Me.ParametriConnessione = ParametriConnessione
+        End Sub
+
+        Public Enum en_TipoPercorso
+            NonDefinito = 0
+            Directory_Locale = 1
+            Directory_Remota = 2
+            FTP = 4
+        End Enum
+    End Class
+
+#End Region '"Dettaglio Percorsi di ORIGINE e DESTINAZIONE"
+
+
+#Region "Dettaglio Pianificazione"
+    Property ModalitaPianifcazione As en_ModalitaPianificazione = en_ModalitaPianificazione.NonDefinito
+
+    Property Orario As Nullable(Of DateTime) = Nothing
+
+
+    Enum en_ModalitaPianificazione
+        NonDefinito = 0
+        Manuale = 1
+        Giornaliero = 2
+        Mensile = 4
+    End Enum
+
+
+#End Region '"Dettaglio Pianificazione"
+
+
+#Region "Dettaglio Compressione"
+    Property Compressione As cls_task_Config_Compressione = Nothing
+    Class cls_task_Config_Compressione
+        'Specifica Tipologia (e livello) di compressione dei file
+        Property TipoCompressione As en_TipoCompressione = en_TipoCompressione.NonCompresso
+        Property LivelloCompressione As en_LivelloCompressione = en_LivelloCompressione.Normale
+
+        'Determina se l'eventuale archivio è o meno protetto da password
+        'La password è salvata in maniera criptatta
+        Property MetodoCrittografia As en_MetodoCrittografia = en_MetodoCrittografia.Nessuno
+        Property PasswordCrittografia As String = ""
+
+        'Gestisce una eventuale suddivisione dell'archivio in più parti in base ad una dimensione massima
+        'Opzioni non gestite
+        ReadOnly Property SuddividiArchivio As Boolean = False
+        ReadOnly Property DimensioneSuddivisione As UInt64 = 0
+
+        Sub New()
+            TipoCompressione = en_TipoCompressione.NonCompresso
+            LivelloCompressione = en_LivelloCompressione.Normale
+            MetodoCrittografia = en_MetodoCrittografia.Nessuno
+            PasswordCrittografia = ""
+            SuddividiArchivio = False
+            DimensioneSuddivisione = 0
+        End Sub
+
+        Public Enum en_TipoCompressione
+            NonDefinito = 0
+            NonCompresso = 1
+            CompressioneZIP = 2
+        End Enum
+        Public Enum en_LivelloCompressione
+            NonDefinito = 0
+            Normale = 1
+            Alto = 2
+            Basso = 4
+        End Enum
+        Public Enum en_MetodoCrittografia
+            NonDefinito = 0
+            Nessuno = 1
+            Altro = 1024
+        End Enum
+    End Class
+
+#End Region '"Dettaglio Compressione"
+
+
+#Region "Dettaglio Esecuzione"
+
+
+    Private Property ParametriEsecuzione As cls_ExecuteValue = Nothing
+
+    Class cls_ExecuteValue
+        Property Destinazione_NomeFile As String = ""
+        Property AppoggioOUT_NomeFile As String = ""
+        Property Esecuzione_MultiSorgente As Boolean = False
+    End Class
+
+
+#End Region '"Dettaglio Esecuzione"
+
+    Property TASK_Configuration As cls_Task_Config = Nothing
+
+    Sub New()
+        Percorsi_Origine = New Dictionary(Of String, cls_percorso)
+
+        TASK_Configuration = New cls_Task_Config
+    End Sub
 
 
 
-    Private Function Zippa(ListaFile As cls_Task.cls_task_ListaInfoFile)
 
+
+
+
+    Private Function Zippa(ListaFile As cls_Task.cls_task_ListaInfoFile) As Boolean
+        Dim bool_Result As Boolean = False
         Dim obj_ZipFile As Ionic.Zip.ZipFile = Nothing
         Dim str_temp_percorso As String = ""
 
-        obj_ZipFile = New Ionic.Zip.ZipFile
-        For Each obj_file As cls_Task.cls_task_ListaInfoFile.cls_task_InfoFile In ListaFile.Incluso_ListaFile
-            Dim str_NomeFile As String = ""
-            str_NomeFile = obj_file.FileName
-            Dim fileInfoInZip As New System.IO.FileInfo(str_NomeFile)
-            'lo aggiungo al file zip e comprimo
-            Try
-                str_temp_percorso = System.IO.Path.GetDirectoryName(str_NomeFile)
+        Try
+            obj_ZipFile = New Ionic.Zip.ZipFile
+            For Each obj_file As cls_Task.cls_task_ListaInfoFile.cls_task_InfoFile In ListaFile.Incluso_ListaFile
+                Dim str_NomeFile As String = ""
+                str_NomeFile = obj_file.FileName
+                Dim fileInfoInZip As New System.IO.FileInfo(str_NomeFile)
+                'lo aggiungo al file zip e comprimo
+                Try
+                    str_temp_percorso = System.IO.Path.GetDirectoryName(str_NomeFile)
+                    If Me.ParametriEsecuzione.Esecuzione_MultiSorgente Then
+                    Else
+                        str_temp_percorso = str_temp_percorso.Substring(obj_file.PercorsoOrigine.Length)
+                    End If
+                    obj_ZipFile.AddFile(str_NomeFile, str_temp_percorso)
+                Catch ex As Exception
+                    'MessageBox.Show(ex.Message)
+                    ListaFile.Errore_AddFile(str_NomeFile, ex.Message, obj_file.DimensioneByte, obj_file.PercorsoOrigine)
+                End Try
+            Next
+            obj_ZipFile.Save(Me.ParametriEsecuzione.AppoggioOUT_NomeFile)
 
-                If Exec_MultiSource Then
+            bool_Result = True
+        Catch ex As Exception
 
-                Else
-                    str_temp_percorso = str_temp_percorso.Substring(obj_file.PercorsoOrigine.Length)
-                End If
+        End Try
 
-
-                obj_ZipFile.AddFile(str_NomeFile, str_temp_percorso)
-            Catch ex As Exception
-                'MessageBox.Show(ex.Message)
-                ListaFile.Errore_AddFile(str_NomeFile, ex.Message, obj_file.DimensioneByte, obj_file.PercorsoOrigine)
-
-            End Try
-        Next
-        obj_ZipFile.Save(Exec_temp_OutFileName)
-
-        Return True
+        Return bool_Result
     End Function
 
     Public Function Processa() As Boolean
@@ -77,47 +283,42 @@
         Dim str_temp As String = ""
 
         str_temp = TASK_Configuration.OutputFileNamePattern '& ".zip"
-        str_temp = str_temp.Replace("[%TASK-NAME]", TASK_NAME)
-        str_temp = str_temp.Replace("[%TASK-TIPO]", TASK_Tipo.ToString)
+        str_temp = str_temp.Replace("[%TASK-NAME]", Me.Nome)
+        str_temp = str_temp.Replace("[%TASK-TIPO]", Me.Tipo.ToString)
         str_temp = str_temp.Replace("[%CURRENT-TIME]", DateTime.Now.ToString(TASK_Configuration.DateTimeFormat))
 
         '[%TASK-NAME]_[%TASK-TIPO]_[%CURRENT-TIME]
 
-        Exec_temp_OutFileName = System.IO.Path.Combine(TASK_DestinazionePath, str_temp)
+
+        'Me.ParametriEsecuzione.Destinazione_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
+        Me.ParametriEsecuzione.AppoggioOUT_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
 
         ListaFile = New cls_Task.cls_task_ListaInfoFile
-        Exec_MultiSource = True
+        Me.ParametriEsecuzione.Esecuzione_MultiSorgente = True
 
 
-        For Each obj_path As cls_task_percorso In TASK_Origine
-            Select Case obj_path.Tipo
-                Case cls_task_percorso.en_TipoPercorso.Cartella
-
-                    Get_FileList(ListaFile, obj_path.percorso, obj_path.percorso, pattern, TASK_Configuration.ProcessaSottoDirectory, (TASK_Tipo = en_task_TipoTask.SoloNonArchiviati))
+        'Determina elenco File da processare
+        For Each obj_path As KeyValuePair(Of String, cls_percorso) In Me.Percorsi_Origine
+            Select Case obj_path.Value.Tipo
+                Case cls_percorso.en_TipoPercorso.Directory_Locale
+                    Get_FileList(ListaFile, obj_path.Value.Percorso, obj_path.Value.Percorso, pattern, TASK_Configuration.ProcessaSottoDirectory, (Me.Tipo = en_TipoTask.SoloNonArchiviati))
 
             End Select
         Next
 
-        Zippa(ListaFile)
-
-
-
-
-
-
-
+        'Processa i file
+        Select Case Me.Compressione.TipoCompressione
+            Case cls_task_Config_Compressione.en_TipoCompressione.NonDefinito
+                '(TODO) Gestione ERRORE
+            Case cls_task_Config_Compressione.en_TipoCompressione.NonCompresso
+                '(TODO)
+            Case cls_task_Config_Compressione.en_TipoCompressione.CompressioneZIP
+                bool_Result = Zippa(ListaFile)
+        End Select
 
 
         Return bool_Result
     End Function
-
-
-
-
-
-
-
-
 
 
 
@@ -135,24 +336,7 @@
         Property DateTimeFormat As String = ""
     End Class
 
-    Class cls_task_percorso
-        Public Enum en_TipoPercorso
-            NonDefinito = 0
-            Cartella = 1
-        End Enum
 
-        Property Tipo As en_TipoPercorso = en_TipoPercorso.NonDefinito
-        Property percorso As String = ""
-
-        Sub New()
-
-        End Sub
-        Sub New(ByVal Tipo As en_TipoPercorso, ByVal Path As String)
-            Me.Tipo = Tipo
-            Me.percorso = Path
-        End Sub
-
-    End Class
 
     Class cls_task_ListaInfoFile
         Private _Lista_FileInclusi As List(Of cls_task_InfoFile) = Nothing
