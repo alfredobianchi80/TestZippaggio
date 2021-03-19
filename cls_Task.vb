@@ -12,7 +12,7 @@
     Enum en_TipoTask
         NonDefinito = 0
         Completo = 1
-        SoloNonArchiviati = 2
+        Differenziale = 2
     End Enum
 
 #End Region '"Dati Generali"
@@ -23,6 +23,7 @@
     Property Percorso_Destinazione As cls_percorso = Nothing
 
     Public Function Add_Origine(ByVal Tipo As cls_percorso.en_TipoPercorso, ByVal Path As String, ByVal PercorsoID As String,
+                                ByVal Processa_SottoDirectory As Boolean,
                                 Optional ByVal ParametriConnessione As String = "",
                                 Optional ByVal CambiaIDSeEsistente As Boolean = False) As Boolean
         Dim bool_Result As Boolean = False
@@ -63,7 +64,7 @@
 
         If bool_inserisci Then
             Try
-                Percorsi_Origine.Add(PercorsoID, New cls_percorso(Tipo, Path, PercorsoID, ParametriConnessione))
+                Percorsi_Origine.Add(PercorsoID, New cls_percorso(Tipo, Path, Processa_SottoDirectory, PercorsoID, ParametriConnessione))
                 bool_Result = True
             Catch ex As Exception
 
@@ -124,14 +125,16 @@
         Property Percorso As String = ""
         Property ParametriConnessione As String = ""
         Property IDPercorso As String = ""
+        Property Processa_SottoDirectory As Boolean = False
         Sub New()
 
         End Sub
-        Sub New(ByVal Tipo As en_TipoPercorso, ByVal Percorso As String, ByVal IDPercorso As String, Optional ByVal ParametriConnessione As String = "")
+        Sub New(ByVal Tipo As en_TipoPercorso, ByVal Percorso As String, ByVal Processa_SottoDirectory As Boolean, ByVal IDPercorso As String, Optional ByVal ParametriConnessione As String = "")
             Me.Tipo = Tipo
             Me.Percorso = Percorso
             Me.IDPercorso = IDPercorso
             Me.ParametriConnessione = ParametriConnessione
+            Me.Processa_SottoDirectory = Processa_SottoDirectory
         End Sub
 
         Public Enum en_TipoPercorso
@@ -174,6 +177,9 @@
         Property MetodoCrittografia As en_MetodoCrittografia = en_MetodoCrittografia.Nessuno
         Property PasswordCrittografia As String = ""
 
+        Property UsaNomeTask As Boolean = True
+        Property ControlloCRC As Boolean = False
+
         'Gestisce una eventuale suddivisione dell'archivio in più parti in base ad una dimensione massima
         'Opzioni non gestite
         ReadOnly Property SuddividiArchivio As Boolean = False
@@ -209,26 +215,57 @@
 #End Region '"Dettaglio Compressione"
 
 
+
+#Region "Dettaglio Formati e Formattazioni"
+
+    Property GlobalConfig As cls_Task_Config_Global = Nothing
+
+    Class cls_Task_Config_Global
+        Property Formato_DataOra_NomeFile As String = "yyyy-MM-dd hh:mm:ss"
+        Property Formato_Data_NomeFile As String = "yyyy-MM-dd"
+        Property Formato_DataOra_Registro As String = "yyyy-MM-dd hh:mm:ss"
+        Property Formato_DataOra_NomeFileRegistro As String = "" 'GLOBALE APPLICATIVO
+        Property OmettiSpaziSuDataOra As Boolean = True
+
+        Property TempOutputDirectory As String = ""
+
+    End Class
+
+#End Region '"Dettaglio Formati e Formattazioni"
+
+
 #Region "Dettaglio Esecuzione"
-
-
     Private Property ParametriEsecuzione As cls_ExecuteValue = Nothing
 
     Class cls_ExecuteValue
+        Property DataRiferimento As DateTime
         Property Destinazione_NomeFile As String = ""
         Property AppoggioOUT_NomeFile As String = ""
         Property Esecuzione_MultiSorgente As Boolean = False
+        Property OutputFileNamePattern As String = "[%TASK-NAME]_[%DATA_RIF]_[%TASK-TIPO]_[%CURRENT-TIME].zip"
+
     End Class
 
 
 #End Region '"Dettaglio Esecuzione"
 
-    Property TASK_Configuration As cls_Task_Config = Nothing
+
 
     Sub New()
-        Percorsi_Origine = New Dictionary(Of String, cls_percorso)
-
-        TASK_Configuration = New cls_Task_Config
+        Me.ID = ""
+        Me.Nome = ""
+        Me.Gruppo = ""
+        Me.Priorita = 0
+        Me.Abilitato = False
+        Me.UsaCopiaShadow = False
+        Me.Tipo = en_TipoTask.NonDefinito
+        Me.Percorsi_Origine = New Dictionary(Of String, cls_percorso)
+        Me.Percorso_Destinazione = New cls_percorso
+        Me.ModalitaPianifcazione = en_ModalitaPianificazione.NonDefinito
+        Me.Orario = Nothing
+        Me.Compressione = New cls_task_Config_Compressione
+        Me.GlobalConfig = New cls_Task_Config_Global
+        Me.ParametriEsecuzione = New cls_ExecuteValue
     End Sub
 
 
@@ -236,11 +273,25 @@
 
 
 
+#Region "Private Function"
 
     Private Function Zippa(ListaFile As cls_Task.cls_task_ListaInfoFile) As Boolean
         Dim bool_Result As Boolean = False
         Dim obj_ZipFile As Ionic.Zip.ZipFile = Nothing
         Dim str_temp_percorso As String = ""
+        Dim str_temp As String = ""
+
+
+        'Determina Nome File ( e percorsi Full) file di Out  (TODO) Trasformare in funzione separata e poi richiamarla alla bisogna
+        str_temp = ParametriEsecuzione.OutputFileNamePattern
+        str_temp = str_temp.Replace("[%TASK-NAME]", Me.Nome)
+        str_temp = str_temp.Replace("[%TASK-TIPO]", Me.Tipo.ToString)
+        str_temp = str_temp.Replace("[%DATA_RIF]", Me.ParametriEsecuzione.DataRiferimento.ToString(GlobalConfig.Formato_Data_NomeFile))
+        str_temp = str_temp.Replace("[%CURRENT-TIME]", DateTime.Now.ToString(GlobalConfig.Formato_DataOra_NomeFile))
+        Me.ParametriEsecuzione.Destinazione_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
+        Me.ParametriEsecuzione.AppoggioOUT_NomeFile = System.IO.Path.Combine(Me.GlobalConfig.TempOutputDirectory, str_temp)
+
+        'Tenta lo zippaggio...
 
         Try
             obj_ZipFile = New Ionic.Zip.ZipFile
@@ -271,6 +322,72 @@
         Return bool_Result
     End Function
 
+    Private Function Get_FileList(ByRef ListaFile As cls_task_ListaInfoFile, ByVal PercorsoAnalisi As String, ByVal PercorsoBase As String,
+                                  Optional ByVal Pattern As String = "*.*",
+                                  Optional ByVal ProcessaSottoDirectory As Boolean = True,
+                                  Optional ByVal ProcessaSoloNonArchiviati As Boolean = False) As Boolean
+        Dim bool_Result As Boolean = False
+        Dim obj_FileAttribute As System.IO.FileAttributes = Nothing
+        Dim obj_FileInfo As System.IO.FileInfo = Nothing
+        Dim bool_AccodaFile As Boolean = False
+        Dim str_Motivo As String = ""
+        Dim lng_FileDimension As Long
+
+        If ListaFile Is Nothing Then
+            ListaFile = New cls_task_ListaInfoFile
+        End If
+
+
+        Try
+            For Each str_NomeFile As String In IO.Directory.GetFiles(PercorsoAnalisi, Pattern)
+                str_Motivo = ""
+                bool_AccodaFile = False
+
+                'Processa per Attributi
+                'obj_FileAttribute = IO.File.GetAttributes(str_NomeFile)
+
+                obj_FileInfo = New IO.FileInfo(str_NomeFile)
+                obj_FileAttribute = obj_FileInfo.Attributes
+                lng_FileDimension = obj_FileInfo.Length
+
+                If ProcessaSoloNonArchiviati Then
+                    If ((obj_FileAttribute And System.IO.FileAttributes.Archive) = System.IO.FileAttributes.Archive) Then
+                        bool_AccodaFile = False
+                        str_Motivo = "Archiviato"
+                    Else
+                        bool_AccodaFile = True
+                    End If
+                Else
+                    bool_AccodaFile = True
+                End If
+
+                'Verifica per Pattern di esclusione (DA IMPLEMENTARE)
+                If bool_AccodaFile Then
+                    '(TODO)
+                End If
+
+                If bool_AccodaFile Then
+                    ListaFile.Incluso_AddFile(str_NomeFile, "", lng_FileDimension, PercorsoBase)
+                Else
+                    ListaFile.Escluso_AddFile(str_NomeFile, str_Motivo, lng_FileDimension, PercorsoBase)
+                End If
+            Next
+            If ProcessaSottoDirectory Then
+                For Each str_Directory As String In IO.Directory.GetDirectories(PercorsoAnalisi)
+                    Get_FileList(ListaFile, str_Directory, PercorsoBase, Pattern, ProcessaSottoDirectory, ProcessaSoloNonArchiviati)
+                Next
+            End If
+            bool_Result = True
+        Catch ex As Exception
+        End Try
+
+        Return bool_Result
+    End Function
+
+#End Region '"Private Function"
+
+
+#Region "Public Function"
     Public Function Processa() As Boolean
         Dim bool_Result As Boolean = False
         Dim ListaFile As cls_Task.cls_task_ListaInfoFile = Nothing
@@ -280,18 +397,9 @@
 
         'Determina NomeFile Output
 
-        Dim str_temp As String = ""
-
-        str_temp = TASK_Configuration.OutputFileNamePattern '& ".zip"
-        str_temp = str_temp.Replace("[%TASK-NAME]", Me.Nome)
-        str_temp = str_temp.Replace("[%TASK-TIPO]", Me.Tipo.ToString)
-        str_temp = str_temp.Replace("[%CURRENT-TIME]", DateTime.Now.ToString(TASK_Configuration.DateTimeFormat))
-
-        '[%TASK-NAME]_[%TASK-TIPO]_[%CURRENT-TIME]
 
 
-        'Me.ParametriEsecuzione.Destinazione_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
-        Me.ParametriEsecuzione.AppoggioOUT_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
+
 
         ListaFile = New cls_Task.cls_task_ListaInfoFile
         Me.ParametriEsecuzione.Esecuzione_MultiSorgente = True
@@ -301,8 +409,7 @@
         For Each obj_path As KeyValuePair(Of String, cls_percorso) In Me.Percorsi_Origine
             Select Case obj_path.Value.Tipo
                 Case cls_percorso.en_TipoPercorso.Directory_Locale
-                    Get_FileList(ListaFile, obj_path.Value.Percorso, obj_path.Value.Percorso, pattern, TASK_Configuration.ProcessaSottoDirectory, (Me.Tipo = en_TipoTask.SoloNonArchiviati))
-
+                    Get_FileList(ListaFile, obj_path.Value.Percorso, obj_path.Value.Percorso, pattern, obj_path.Value.Processa_SottoDirectory, (Me.Tipo = en_TipoTask.Differenziale))
             End Select
         Next
 
@@ -320,23 +427,13 @@
         Return bool_Result
     End Function
 
-
+#End Region '"Public Function"
 
 
 
 
 
 #Region "SUB-CLASS"
-
-    Class cls_Task_Config
-        Property ProcessaSottoDirectory As Boolean = False
-        Property TempOutputDirectory As String = ""
-        Property OutputFileNamePattern As String = ""
-
-        Property DateTimeFormat As String = ""
-    End Class
-
-
 
     Class cls_task_ListaInfoFile
         Private _Lista_FileInclusi As List(Of cls_task_InfoFile) = Nothing
@@ -457,127 +554,7 @@
 
 
 
-    Private Function Get_FileList(ByRef ListaFile As cls_task_ListaInfoFile, ByVal PercorsoAnalisi As String, ByVal PercorsoBase As String,
-                                  Optional ByVal Pattern As String = "*.*",
-                                  Optional ByVal ProcessaSottoDirectory As Boolean = True,
-                                  Optional ByVal ProcessaSoloNonArchiviati As Boolean = False) As Boolean
-        Dim bool_Result As Boolean = False
-        Dim obj_FileAttribute As System.IO.FileAttributes = Nothing
-        Dim obj_FileInfo As System.IO.FileInfo = Nothing
-        Dim bool_AccodaFile As Boolean = False
-        Dim str_Motivo As String = ""
-        Dim lng_FileDimension As Long
-
-        If ListaFile Is Nothing Then
-            ListaFile = New cls_task_ListaInfoFile
-        End If
 
 
-        Try
-            For Each str_NomeFile As String In IO.Directory.GetFiles(PercorsoAnalisi, Pattern)
-                str_Motivo = ""
-                bool_AccodaFile = False
-
-                'Processa per Attributi
-                'obj_FileAttribute = IO.File.GetAttributes(str_NomeFile)
-
-                obj_FileInfo = New IO.FileInfo(str_NomeFile)
-                obj_FileAttribute = obj_FileInfo.Attributes
-                lng_FileDimension = obj_FileInfo.Length
-
-                If ProcessaSoloNonArchiviati Then
-                    If ((obj_FileAttribute And System.IO.FileAttributes.Archive) = System.IO.FileAttributes.Archive) Then
-                        bool_AccodaFile = False
-                        str_Motivo = "Archiviato"
-                    Else
-                        bool_AccodaFile = True
-                    End If
-                Else
-                    bool_AccodaFile = True
-                End If
-
-                'Verifica per Pattern di esclusione (DA IMPLEMENTARE)
-                If bool_AccodaFile Then
-                    '(TODO)
-                End If
-
-                If bool_AccodaFile Then
-                    ListaFile.Incluso_AddFile(str_NomeFile, "", lng_FileDimension, PercorsoBase)
-                Else
-                    ListaFile.Escluso_AddFile(str_NomeFile, str_Motivo, lng_FileDimension, PercorsoBase)
-                End If
-            Next
-            If ProcessaSottoDirectory Then
-                For Each str_Directory As String In IO.Directory.GetDirectories(PercorsoAnalisi)
-                    Get_FileList(ListaFile, str_Directory, PercorsoBase, Pattern, ProcessaSottoDirectory, ProcessaSoloNonArchiviati)
-                Next
-            End If
-            bool_Result = True
-        Catch ex As Exception
-        End Try
-
-        Return bool_Result
-    End Function
-
-    'Private Function ComprimiDirectory(ByVal PercorsoOrigine As String, ByVal DestFileFullName As String,
-    '                                  Optional ByVal FilterValue As String = "*.*",
-    '                                  Optional ByVal ProcessaSottoDirectory As Boolean = True,
-    '                                  Optional ByVal ProcessoSoloNonArchiviati As Boolean = False) As Boolean
-    '    Dim bool_result As Boolean = False
-    '    Dim obj_ZipFile As Ionic.Zip.ZipFile = Nothing
-    '    Dim str_Percorso As String = ""
-    '    'Dim filesDaComprimere As List(Of String) = Nothing
-    '    Dim ListaFile As cls_Task.cls_task_ListaInfoFile = Nothing
-
-    '    Dim lng_NumeroFileProcessati As Long = 0
-    '    Dim lng_NumeroFileTotali As Long = 0
-    '    Dim lng_NumeroFileErrore As Long = 0
-
-
-    '    'Inizializza Variabili
-    '    ListaFile = New cls_Task.cls_task_ListaInfoFile
-
-
-    '    'Recupera Lista File da comprimere
-    '    Get_FileList(ListaFile, PercorsoOrigine, FilterValue, ProcessaSottoDirectory, ProcessoSoloNonArchiviati)
-
-
-    '    If ListaFile IsNot Nothing Then
-
-    '        lng_NumeroFileTotali = ListaFile.Incluso_Count + ListaFile.Escluso_Count
-    '    Else
-    '        lng_NumeroFileTotali = 0
-    '    End If
-
-
-
-    '    'Crea ZIP e procedi all'aggiunta dei file
-    '    obj_ZipFile = New Ionic.Zip.ZipFile
-
-
-
-    '    For Each obj_file As cls_Task.cls_task_ListaInfoFile.cls_task_InfoFile In ListaFile.Incluso_ListaFile
-    '        Dim str_NomeFile As String = ""
-    '        str_NomeFile = obj_file.FileName
-    '        Dim fileInfoInZip As New System.IO.FileInfo(str_NomeFile)
-    '        'lo aggiungo al file zip e comprimo
-    '        Try
-    '            str_Percorso = System.IO.Path.GetDirectoryName(str_NomeFile)
-    '            str_Percorso = str_Percorso.Substring(PercorsoOrigine.Length)
-    '            obj_ZipFile.AddFile(str_NomeFile, str_Percorso)
-    '        Catch ex As Exception
-    '            'MessageBox.Show(ex.Message)
-    '            ListaFile.Errore_AddFile(str_NomeFile, ex.Message, obj_file.DimensioneByte, obj_file.PercorsoOrigine)
-
-    '        End Try
-    '    Next
-    '    obj_ZipFile.Save(DestFileFullName)
-
-    '    If ListaFile IsNot Nothing Then
-    '        lng_NumeroFileErrore = ListaFile.Errore_Count
-    '    End If
-
-    '    Return bool_result
-    'End Function
 
 End Class
