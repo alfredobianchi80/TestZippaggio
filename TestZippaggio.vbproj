@@ -14,6 +14,8 @@
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -47,9 +49,36 @@
   <PropertyGroup>
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AlphaShadow, Version=1.2.4000.3, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaShadow.exe</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.51.x86, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=x86">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.51.x86.dll</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.52.x64, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=AMD64">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.52.x64.dll</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.52.x86, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=x86">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.52.x86.dll</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.60.x64, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=AMD64">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.60.x64.dll</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.60.x86, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=x86">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.60.x86.dll</HintPath>
+    </Reference>
+    <Reference Include="AlphaVSS.Common, Version=1.2.4000.3, Culture=neutral, PublicKeyToken=959d3993561034e3, processorArchitecture=MSIL">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\AlphaVSS.Common.dll</HintPath>
+    </Reference>
     <Reference Include="DotNetZip, Version=1.15.0.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
       <HintPath>packages\DotNetZip.1.15.0\lib\net40\DotNetZip.dll</HintPath>
+    </Reference>
+    <Reference Include="SnapshotQuery, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\AlphaVSS.1.2.4000.3\lib\net40\SnapshotQuery.exe</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -79,6 +108,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="cls_Task.vb" />
+    <Compile Include="cls_VSS.vb" />
     <Compile Include="Form1.vb">
       <SubType>Form</SubType>
     </Compile>
@@ -123,6 +153,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Include="My Project\app.manifest" />
     <None Include="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
@@ -136,4 +167,11 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+  <Import Project="packages\AlphaVSS.Native.NetFx.2.0.0\build\net45\AlphaVSS.Native.NetFx.targets" Condition="Exists('packages\AlphaVSS.Native.NetFx.2.0.0\build\net45\AlphaVSS.Native.NetFx.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>Questo progetto fa riferimento a uno o più pacchetti NuGet che non sono presenti in questo computer. Usare lo strumento di ripristino dei pacchetti NuGet per scaricarli. Per altre informazioni, vedere http://go.microsoft.com/fwlink/?LinkID=322105. Il file mancante è {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\AlphaVSS.Native.NetFx.2.0.0\build\net45\AlphaVSS.Native.NetFx.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\AlphaVSS.Native.NetFx.2.0.0\build\net45\AlphaVSS.Native.NetFx.targets'))" />
+  </Target>
 </Project>

@@ -57,7 +57,7 @@
                     bool_EsciCiclo = True
                 End If
             End If
-        Loop Until (bool_EsciCiclo = False)
+        Loop Until (bool_EsciCiclo = True)
         If PercorsoID <> str_temp_ID Then
             PercorsoID = str_temp_ID
         End If
@@ -280,6 +280,8 @@
         Dim obj_ZipFile As Ionic.Zip.ZipFile = Nothing
         Dim str_temp_percorso As String = ""
         Dim str_temp As String = ""
+        Dim str_tmp_NomeFile As String = ""
+        Dim str_NomeFile As String = ""
 
 
         'Determina Nome File ( e percorsi Full) file di Out  (TODO) Trasformare in funzione separata e poi richiamarla alla bisogna
@@ -288,6 +290,14 @@
         str_temp = str_temp.Replace("[%TASK-TIPO]", Me.Tipo.ToString)
         str_temp = str_temp.Replace("[%DATA_RIF]", Me.ParametriEsecuzione.DataRiferimento.ToString(GlobalConfig.Formato_Data_NomeFile))
         str_temp = str_temp.Replace("[%CURRENT-TIME]", DateTime.Now.ToString(GlobalConfig.Formato_DataOra_NomeFile))
+
+        str_temp = str_temp.Replace(":", "-")
+
+
+
+
+
+
         Me.ParametriEsecuzione.Destinazione_NomeFile = System.IO.Path.Combine(Me.Percorso_Destinazione.Percorso, str_temp)
         Me.ParametriEsecuzione.AppoggioOUT_NomeFile = System.IO.Path.Combine(Me.GlobalConfig.TempOutputDirectory, str_temp)
 
@@ -296,8 +306,12 @@
         Try
             obj_ZipFile = New Ionic.Zip.ZipFile
             For Each obj_file As cls_Task.cls_task_ListaInfoFile.cls_task_InfoFile In ListaFile.Incluso_ListaFile
-                Dim str_NomeFile As String = ""
+
                 str_NomeFile = obj_file.FileName
+
+
+
+
                 Dim fileInfoInZip As New System.IO.FileInfo(str_NomeFile)
                 'lo aggiungo al file zip e comprimo
                 Try
@@ -316,7 +330,7 @@
 
             bool_Result = True
         Catch ex As Exception
-
+            MessageBox.Show(ex.Message)
         End Try
 
         Return bool_Result
@@ -404,12 +418,42 @@
         ListaFile = New cls_Task.cls_task_ListaInfoFile
         Me.ParametriEsecuzione.Esecuzione_MultiSorgente = True
 
+        Dim obj_VSS As cls_VSS_14 = Nothing
+
+        If Me.UsaCopiaShadow Then
+            obj_VSS = New cls_VSS_14
+        End If
+
+
+        Dim str_tmp_Path As String = ""
+        Dim str_Volume As String = ""
+        Dim str_SnapID As String = ""
+        Dim str_VssPath As String = ""
 
         'Determina elenco File da processare
         For Each obj_path As KeyValuePair(Of String, cls_percorso) In Me.Percorsi_Origine
             Select Case obj_path.Value.Tipo
                 Case cls_percorso.en_TipoPercorso.Directory_Locale
-                    Get_FileList(ListaFile, obj_path.Value.Percorso, obj_path.Value.Percorso, pattern, obj_path.Value.Processa_SottoDirectory, (Me.Tipo = en_TipoTask.Differenziale))
+
+                    If Me.UsaCopiaShadow Then
+                        str_Volume = System.IO.Path.GetPathRoot(obj_path.Value.Percorso)
+                        If Not (str_Volume Like "*\") Then
+                            str_Volume = str_Volume & "\"
+                        End If
+                        If obj_VSS.CreateSnapshot(str_Volume, str_SnapID, str_VssPath) Then
+                            str_tmp_Path = obj_path.Value.Percorso.Replace(str_Volume, str_VssPath)
+                        Else
+                            'ERRORE VSS: Uso Percorso Non VSS!!!!
+                            '   (TODO) Gestire con parametro cosa fare (dare errore o continuare con percorso std)
+                            str_tmp_Path = obj_path.Value.Percorso
+                        End If
+                    Else
+                        str_tmp_Path = obj_path.Value.Percorso
+                    End If
+
+
+
+                    Get_FileList(ListaFile, str_tmp_Path, str_tmp_Path, pattern, obj_path.Value.Processa_SottoDirectory, (Me.Tipo = en_TipoTask.Differenziale))
             End Select
         Next
 
@@ -423,6 +467,10 @@
                 bool_Result = Zippa(ListaFile)
         End Select
 
+
+        If Me.UsaCopiaShadow Then
+            obj_VSS.Snapshot_Delete(str_SnapID)
+        End If
 
         Return bool_Result
     End Function

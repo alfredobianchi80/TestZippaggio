@@ -64,22 +64,46 @@ Public Class Form1
 
         With obj_Task
 
-            .TASK_ID = "xxx"
-            .TASK_NAME = "PROVA1"
-            .TASK_Tipo = cls_Task.en_task_TipoTask.Completo
-            With .TASK_Configuration
-                .ProcessaSottoDirectory = True
-                .OutputFileNamePattern = "[%TASK-NAME]_[%TASK-TIPO]_[%CURRENT-TIME].zip"
-                .TempOutputDirectory = ""
-                .DateTimeFormat = "yyyy-mm-dd_hhmmss"
+            .ID = "xxx"
+            .Nome = "PROVA1"
+            .Gruppo = ""
+            .Priorita = 0
+            .Abilitato = True
+            .UsaCopiaShadow = True
+            .Tipo = cls_Task.en_TipoTask.Completo
+
+            .Add_Origine(cls_Task.cls_percorso.en_TipoPercorso.Directory_Locale, Me.txt_origine_Percorso.Text, "C1", False, "", False)
+            '.Add_Origine(cls_Task.cls_percorso.en_TipoPercorso.Directory_Locale, "E:\test_origine2", "C2", False, "", False)
+            '.Add_Origine(cls_Task.cls_percorso.en_TipoPercorso.Directory_Locale, "D:\test_origine2", "C3", False, "", False)
+            .Add_Destinazione(cls_Task.cls_percorso.en_TipoPercorso.Directory_Locale, Me.txt_destinazione_Percorso.Text, "", False)
+
+            .ModalitaPianifcazione = cls_Task.en_ModalitaPianificazione.Manuale
+            .Orario = Nothing
+            With .Compressione
+                .TipoCompressione = cls_Task.cls_task_Config_Compressione.en_TipoCompressione.CompressioneZIP
+                .LivelloCompressione = cls_Task.cls_task_Config_Compressione.en_LivelloCompressione.Normale
+                .MetodoCrittografia = cls_Task.cls_task_Config_Compressione.en_MetodoCrittografia.Nessuno
+                .PasswordCrittografia = ""
+                .UsaNomeTask = False 'Not Implemented yet
+                .ControlloCRC = False 'Not Implemented yet
+                '.SuddividiArchivio = False 'Not Implemented yet
+                '.DimensioneSuddivisione = -1 'Not Implemented yet
+
             End With
 
-            .TASK_Origine.Add(New cls_Task.cls_task_percorso(cls_Task.cls_task_percorso.en_TipoPercorso.Cartella, Me.txt_origine_Percorso.Text))
-            .TASK_Origine.Add(New cls_Task.cls_task_percorso(cls_Task.cls_task_percorso.en_TipoPercorso.Cartella, "E:\test_origine2"))
+            With .GlobalConfig
+                .Formato_DataOra_NomeFile = "yyyy-MM-dd hh:mm:ss"
+                .Formato_Data_NomeFile = "yyyy-MM-dd"
+                .Formato_DataOra_Registro = "yyyy-MM-dd hh:mm:ss"
+                .Formato_DataOra_NomeFileRegistro = "" 'GLOBALE APPLICATIVO
+                .OmettiSpaziSuDataOra = True
+                .TempOutputDirectory = "d:\temp\test"
+            End With
 
 
 
-            .TASK_DestinazionePath = Me.txt_destinazione_Percorso.Text
+
+
             '.TASK_DestinazioneFileName = Me.txt_destinazione_NomeFile.Text
             .Processa()
 
